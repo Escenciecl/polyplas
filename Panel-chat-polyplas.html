@@ -1,0 +1,479 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Polyplas · Panel</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif; background: #f3f4f6; color: #1f2937; height: 100vh; overflow: hidden; }
+  #login { position: fixed; inset: 0; background: #0a4d3c; display: flex; align-items: center; justify-content: center; z-index: 100; }
+  #login .box { background: white; padding: 40px; border-radius: 16px; box-shadow: 0 20px 60px rgba(0,0,0,0.2); width: 360px; text-align: center; }
+  #login h1 { color: #0a4d3c; margin-bottom: 6px; }
+  #login p { color: #6b7280; font-size: 13px; margin-bottom: 24px; }
+  #login input { width: 100%; padding: 12px; border: 1px solid #d1d5db; border-radius: 8px; font-size: 14px; margin-bottom: 12px; }
+  #login button { width: 100%; padding: 12px; background: #0a4d3c; color: white; border: none; border-radius: 8px; font-size: 14px; font-weight: 600; cursor: pointer; }
+  #app { display: none; height: 100vh; }
+  #app.active { display: flex; }
+  #sidebar { width: 340px; background: white; border-right: 1px solid #e5e7eb; display: flex; flex-direction: column; }
+  #sidebar-header { padding: 20px; border-bottom: 1px solid #e5e7eb; background: linear-gradient(135deg, #0a4d3c 0%, #0d6e54 100%); color: white; }
+  #sidebar-header h1 { font-size: 18px; margin-bottom: 2px; }
+  #sidebar-header p { font-size: 12px; opacity: 0.85; }
+  .stats { display: flex; gap: 8px; margin-top: 12px; }
+  .stat { flex: 1; background: rgba(255,255,255,0.15); padding: 8px; border-radius: 8px; text-align: center; font-size: 11px; }
+  .stat strong { display: block; font-size: 18px; margin-bottom: 2px; }
+  #conversations { flex: 1; overflow-y: auto; }
+  .conv-item { padding: 14px 16px; border-bottom: 1px solid #f3f4f6; cursor: pointer; display: flex; gap: 12px; align-items: flex-start; }
+  .conv-item:hover { background: #f9fafb; }
+  .conv-item.active { background: #ecfdf5; border-left: 3px solid #0a4d3c; padding-left: 13px; }
+  .conv-avatar { width: 40px; height: 40px; border-radius: 50%; background: #0a4d3c; color: white; display: flex; align-items: center; justify-content: center; font-weight: 600; font-size: 14px; flex-shrink: 0; }
+  .conv-info { flex: 1; min-width: 0; }
+  .conv-name { font-weight: 600; font-size: 14px; color: #111827; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .conv-company { font-size: 11px; color: #6b7280; }
+  .conv-time { font-size: 11px; color: #9ca3af; margin-top: 2px; }
+  .conv-badge { background: #ef4444; color: white; font-size: 10px; font-weight: 700; padding: 2px 7px; border-radius: 10px; margin-left: auto; }
+  #main { flex: 1; display: flex; flex-direction: column; background: #f9fafb; }
+  #empty-state { flex: 1; display: flex; align-items: center; justify-content: center; flex-direction: column; color: #9ca3af; font-size: 14px; }
+  #empty-state svg { width: 80px; height: 80px; margin-bottom: 16px; opacity: 0.4; }
+  #chat-view { display: none; flex-direction: column; flex: 1; }
+  #chat-view.active { display: flex; }
+  #chat-header { background: white; padding: 16px 24px; border-bottom: 1px solid #e5e7eb; display: flex; gap: 14px; align-items: center; }
+  #chat-header .avatar { width: 44px; height: 44px; border-radius: 50%; background: #0a4d3c; color: white; display: flex; align-items: center; justify-content: center; font-weight: 600; }
+  #chat-header .name { font-weight: 600; font-size: 15px; }
+  #chat-header .meta { font-size: 12px; color: #6b7280; margin-top: 2px; }
+  #chat-header .meta a { color: #0a4d3c; text-decoration: none; margin-right: 12px; }
+  #btn-whatsapp, #btn-gmail { display: none; margin-left: auto; align-items: center; gap: 7px; border: none; padding: 8px 16px; border-radius: 999px; font-size: 13px; font-weight: 600; cursor: pointer; text-decoration: none; white-space: nowrap; color: white; }
+  #btn-whatsapp { background: #25d366; }
+  #btn-whatsapp:hover { background: #1ebe5d; }
+  #btn-gmail { background: #ea4335; margin-left: 0; }
+  #btn-gmail:hover { background: #c5221f; }
+  #btn-whatsapp svg, #btn-gmail svg { width: 16px; height: 16px; flex-shrink: 0; }
+  .contact-btns { margin-left: auto; display: flex; gap: 8px; }
+  #chat-messages { flex: 1; overflow-y: auto; padding: 24px; display: flex; flex-direction: column; gap: 12px; }
+  .msg { max-width: 60%; padding: 10px 14px; border-radius: 14px; font-size: 14px; line-height: 1.4; word-wrap: break-word; }
+  .msg.client { align-self: flex-start; background: white; box-shadow: 0 1px 2px rgba(0,0,0,0.05); border-bottom-left-radius: 4px; }
+  .msg.agent { align-self: flex-end; background: #0a4d3c; color: white; border-bottom-right-radius: 4px; }
+  .msg .time { display: block; font-size: 10px; opacity: 0.7; margin-top: 4px; }
+  .msg a { color: inherit; text-decoration: underline; word-break: break-all; }
+  #chat-input-area { background: white; padding: 16px 24px; border-top: 1px solid #e5e7eb; display: flex; gap: 10px; }
+  #chat-input { flex: 1; padding: 12px 16px; border: 1px solid #d1d5db; border-radius: 999px; font-size: 14px; outline: none; font-family: inherit; }
+  #chat-send { background: #0a4d3c; color: white; border: none; padding: 0 24px; border-radius: 999px; cursor: pointer; font-weight: 600; font-size: 14px; }
+  .empty-conv { padding: 40px 20px; text-align: center; color: #9ca3af; font-size: 13px; }
+  .conv-tags { display: flex; flex-wrap: wrap; gap: 4px; margin-top: 5px; }
+  .conv-tag { display: inline-flex; align-items: center; gap: 3px; font-size: 10px; font-weight: 700; padding: 2px 7px; border-radius: 10px; }
+  .conv-tag.tag-quote    { background: #fef3c7; color: #92400e; }
+  .conv-tag.tag-price    { background: #ffedd5; color: #9a3412; }
+  .conv-tag.tag-address  { background: #dbeafe; color: #1e40af; }
+  .conv-tag.tag-payment  { background: #ede9fe; color: #5b21b6; }
+  .msg.tag-hit { border-left: 3px solid #d1d5db; padding-left: 11px; }
+  .msg.client.tag-hit { border-left-color: #f59e0b; background: #fffbeb; }
+  .msg.agent.tag-hit  { border-left-color: #a78bfa; }
+  #ch-tags { display: flex; flex-wrap: wrap; gap: 5px; margin-left: 10px; }
+  .ch-tag { display: none; align-items: center; gap: 4px; font-size: 11px; font-weight: 700; padding: 3px 10px; border-radius: 999px; white-space: nowrap; }
+  .ch-tag.tag-quote   { background: #fef3c7; color: #92400e; }
+  .ch-tag.tag-price   { background: #ffedd5; color: #9a3412; }
+  .ch-tag.tag-address { background: #dbeafe; color: #1e40af; }
+  .ch-tag.tag-payment { background: #ede9fe; color: #5b21b6; }
+</style>
+</head>
+<body>
+
+<div id="login">
+  <div class="box">
+    <h1>Polyplas</h1>
+    <p>Panel de atención al cliente</p>
+    <input type="password" id="pwd" placeholder="Contraseña" />
+    <button id="loginBtn">Ingresar</button>
+  </div>
+</div>
+
+<div id="app">
+  <aside id="sidebar">
+    <div id="sidebar-header">
+      <h1>👋 Hola Maca</h1>
+      <p>Panel de atención · Polyplas</p>
+      <div class="stats">
+        <div class="stat"><strong id="stat-total">0</strong>Activas</div>
+        <div class="stat"><strong id="stat-unread">0</strong>Sin leer</div>
+      </div>
+    </div>
+    <div id="conversations">
+      <div class="empty-conv">Cargando conversaciones…</div>
+    </div>
+  </aside>
+  <main id="main">
+    <div id="empty-state">
+      <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z"/></svg>
+      <p>Selecciona una conversación para empezar</p>
+    </div>
+    <div id="chat-view">
+      <div id="chat-header">
+        <div class="avatar" id="ch-avatar">?</div>
+        <div style="display:flex;align-items:center;flex-wrap:wrap;gap:6px;">
+          <div class="name" id="ch-name">—</div>
+          <div id="ch-tags">
+            <span class="ch-tag tag-quote"  id="cht-quote">📋 Quiere cotizar</span>
+            <span class="ch-tag tag-price"  id="cht-price">💰 Consulta precio</span>
+            <span class="ch-tag tag-address" id="cht-address">📍 Consulta dirección</span>
+            <span class="ch-tag tag-payment" id="cht-payment">🏦 Datos transferencia</span>
+          </div>
+          <div class="meta" id="ch-meta" style="width:100%;margin-top:0;">—</div>
+        </div>
+        <div class="contact-btns">
+          <a id="btn-whatsapp" target="_blank" rel="noopener noreferrer">
+            <svg viewBox="0 0 24 24" fill="currentColor"><path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347z"/><path d="M12 0C5.373 0 0 5.373 0 12c0 2.123.554 4.118 1.528 5.85L.057 23.885a.5.5 0 00.606.61l6.162-1.616A11.942 11.942 0 0012 24c6.627 0 12-5.373 12-12S18.627 0 12 0zm0 21.882a9.87 9.87 0 01-5.031-1.373l-.36-.214-3.733.979.996-3.638-.235-.374A9.859 9.859 0 012.118 12C2.118 6.533 6.533 2.118 12 2.118S21.882 6.533 21.882 12 17.467 21.882 12 21.882z"/></svg>
+            WhatsApp
+          </a>
+          <a id="btn-gmail" target="_blank" rel="noopener noreferrer">
+            <svg viewBox="0 0 24 24" fill="currentColor"><path d="M24 5.457v13.909c0 .904-.732 1.636-1.636 1.636h-3.819V11.73L12 16.64l-6.545-4.91v9.273H1.636A1.636 1.636 0 010 19.366V5.457c0-.006 0-.013.001-.019l6.909 5.182L12 14.09l5.09-3.47 6.91-5.182c0 .006.001.013.001.019z"/><path d="M23.637 4.364L12 12.818.363 4.364A1.636 1.636 0 011.636 3.636h20.728c.725 0 1.342.472 1.545 1.128l-.272.2z"/></svg>
+            Gmail
+          </a>
+        </div>
+      </div>
+      <div id="chat-messages"></div>
+      <div id="chat-input-area">
+        <input type="text" id="chat-input" placeholder="Escribe tu respuesta..." />
+        <button id="chat-send">Enviar</button>
+      </div>
+    </div>
+  </main>
+</div>
+
+<script src="https://unpkg.com/@supabase/supabase-js@2"></script>
+<script>
+(function() {
+  'use strict';
+
+  var SUPABASE_URL = 'https://gdrkscedvkjtcvexnhzg.supabase.co';
+  var SUPABASE_KEY = 'sb_publishable_qT9WuJK5Wi6VghgMvcYIMw_IGBtn1Tc';
+  var PASSWORD = 'maca2026';
+
+  var sb = null;
+  var currentConvId = null;
+  var convs = [];
+  var convTags = {}; // cache: convId → { quote, price, address, payment }
+
+  var CATEGORIES = [
+    {
+      id: 'quote',
+      re: /cotiza(r|ci[oó]n|me|rme|rles?|rnos)?|presupuest[oa]|proforma|me pueden? cotizar|necesito (una )?cotizaci[oó]n|quiero (una )?cotizaci[oó]n|me interesa cotizar|le preparo (una )?cotizaci[oó]n|le env[ií]o (una )?cotizaci[oó]n/i
+    },
+    {
+      id: 'price',
+      re: /cu[aá]nto (cuesta|vale|sale|cobran|costar[ií]a|quedar[ií]a|me (sal|costar|quedar)[ií]a)|a cu[aá]nto (est[aá]n?|sale|queda)|precio[s]?|lista de precio[s]?|valor(es)?|tarifa[s]?|cu[aá]nto est[aá]n?|qu[eé] precio/i
+    },
+    {
+      id: 'address',
+      re: /direcci[oó]n|ubicaci[oó]n|d[oó]nde (est[aá]n?|quedan?|se ubican?|los encuentro|puedo ir)|c[oó]mo (llego|llegar|ir)|local|sucursal|oficina|mapa|direcci[oó]n f[ií]sica|retiro en tienda|pueden? retirar/i
+    },
+    {
+      id: 'payment',
+      re: /transferencia|datos (de pago|bancarios?)|cuenta (bancaria|corriente|vista|rut)?|n[uú]mero de cuenta|rut (empresa|de la empresa|de ustedes)|banco|c[oó]mo (pago|pagar)|forma[s]? de pago|medio[s]? de pago|dep[oó]sito|boleta|factura|pago (en l[ií]nea|electr[oó]nico)/i
+    }
+  ];
+
+  function detectTags(text) {
+    var found = {};
+    for (var i = 0; i < CATEGORIES.length; i++) {
+      if (CATEGORIES[i].re.test(text || '')) found[CATEGORIES[i].id] = true;
+    }
+    return found;
+  }
+
+  function mergeTags(target, src) {
+    for (var k in src) if (src[k]) target[k] = true;
+  }
+
+  function hasTags(tags) {
+    for (var k in tags) if (tags[k]) return true;
+    return false;
+  }
+
+  var AUTO_REPLY_ADDRESS = 'Estamos ubicados en Santiago Concha 1525, Santiago. Toca el enlace para abrir en Google Maps: https://maps.google.com/?q=-33.465282,-70.638817';
+
+  function sendAutoReply(convId, text) {
+    var now = new Date().toISOString();
+    sb.from('messages').insert({ conversation_id: convId, sender: 'agent', content: text }).then(function() {
+      sb.from('conversations').update({ last_message_at: now }).eq('id', convId).then(function(){});
+    });
+    if (convId === currentConvId) {
+      renderMsg({ sender: 'agent', content: text, created_at: now });
+    }
+  }
+
+  // === LOGIN (funciona aunque Supabase falle) ===
+  function tryLogin() {
+    var pwd = document.getElementById('pwd').value;
+    if (pwd === PASSWORD) {
+      sessionStorage.setItem('pp_logged', '1');
+      showApp();
+    } else {
+      alert('Contraseña incorrecta');
+    }
+  }
+
+  function showApp() {
+    document.getElementById('login').style.display = 'none';
+    document.getElementById('app').classList.add('active');
+    if (!sb) {
+      document.getElementById('conversations').innerHTML = '<div class="empty-conv">⚠️ No se pudo conectar a Supabase. Refresca la página.</div>';
+      return;
+    }
+    loadConvs();
+    subscribe();
+  }
+
+  // === EVENT LISTENERS (en vez de onclick inline) ===
+  document.addEventListener('DOMContentLoaded', function() {
+    document.getElementById('loginBtn').addEventListener('click', tryLogin);
+    document.getElementById('pwd').addEventListener('keydown', function(e) {
+      if (e.key === 'Enter') tryLogin();
+    });
+
+    var sendBtn = document.getElementById('chat-send');
+    var chatInput = document.getElementById('chat-input');
+    if (sendBtn) sendBtn.addEventListener('click', sendReply);
+    if (chatInput) chatInput.addEventListener('keydown', function(e) {
+      if (e.key === 'Enter') sendReply();
+    });
+
+    // Conectar Supabase
+    if (typeof window.supabase !== 'undefined' && window.supabase.createClient) {
+      try {
+        sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+      } catch(err) {
+        console.error('Error creando cliente Supabase:', err);
+      }
+    } else {
+      console.error('Supabase SDK no cargado');
+    }
+
+    if (sessionStorage.getItem('pp_logged') === '1') showApp();
+  });
+
+  // === CONVERSACIONES ===
+  function loadConvs() {
+    sb.from('conversations').select('*').order('last_message_at', {ascending: false})
+      .then(function(res) {
+        if (res.error) { console.error(res.error); return; }
+        convs = res.data || [];
+        renderConvs();
+      });
+  }
+
+  function renderConvs() {
+    var list = document.getElementById('conversations');
+    if (!convs.length) {
+      list.innerHTML = '<div class="empty-conv">Aún no hay conversaciones</div>';
+      document.getElementById('stat-total').textContent = '0';
+      document.getElementById('stat-unread').textContent = '0';
+      return;
+    }
+    var unread = 0;
+    var TAG_LABELS = { quote: '📋 Quiere cotizar', price: '💰 Consulta precio', address: '📍 Consulta dirección', payment: '🏦 Datos transferencia' };
+    var html = '';
+    for (var i = 0; i < convs.length; i++) {
+      var c = convs[i];
+      if (c.unread_count > 0) unread++;
+      var tags = convTags[c.id] || {};
+
+      var initial = (c.client_name || '?').charAt(0).toUpperCase();
+      var time = timeAgo(c.last_message_at);
+      var activeClass = c.id === currentConvId ? 'active' : '';
+      var badge = c.unread_count > 0 ? '<span class="conv-badge">' + c.unread_count + '</span>' : '';
+      var tagsHtml = '';
+      for (var tid in TAG_LABELS) {
+        if (tags[tid]) tagsHtml += '<span class="conv-tag tag-' + tid + '">' + TAG_LABELS[tid] + '</span>';
+      }
+      var tagsBlock = tagsHtml ? '<div class="conv-tags">' + tagsHtml + '</div>' : '';
+      html += '<div class="conv-item ' + activeClass + '" data-id="' + c.id + '">' +
+        '<div class="conv-avatar">' + initial + '</div>' +
+        '<div class="conv-info">' +
+        '<div class="conv-name">' + esc(c.client_name || 'Sin nombre') + '</div>' +
+        '<div class="conv-company">' + esc(c.client_email || '') + '</div>' +
+        '<div class="conv-time">' + time + '</div>' +
+        tagsBlock +
+        '</div>' + badge + '</div>';
+    }
+    list.innerHTML = html;
+    document.getElementById('stat-total').textContent = convs.length;
+    document.getElementById('stat-unread').textContent = unread;
+
+    // Agregar listeners a cada conversación
+    var items = list.querySelectorAll('.conv-item');
+    for (var j = 0; j < items.length; j++) {
+      items[j].addEventListener('click', function() {
+        openConv(this.getAttribute('data-id'));
+      });
+    }
+  }
+
+  function openConv(id) {
+    currentConvId = id;
+    var conv = null;
+    for (var i = 0; i < convs.length; i++) if (convs[i].id === id) conv = convs[i];
+    if (!conv) return;
+
+    document.getElementById('empty-state').style.display = 'none';
+    document.getElementById('chat-view').classList.add('active');
+    document.getElementById('ch-avatar').textContent = (conv.client_name || '?').charAt(0).toUpperCase();
+    document.getElementById('ch-name').textContent = conv.client_name || 'Sin nombre';
+    var meta = [];
+    if (conv.client_email) meta.push('<a href="mailto:' + conv.client_email + '">' + esc(conv.client_email) + '</a>');
+    document.getElementById('ch-meta').innerHTML = meta.join(' · ') || '—';
+
+    // Botones de contacto
+    var btnWa   = document.getElementById('btn-whatsapp');
+    var btnGm   = document.getElementById('btn-gmail');
+    var md      = conv.metadata || {};
+    var rawPhone = md.phone || md.whatsapp || '';
+    var refLabel = md.refID ? ' (ref: ' + md.refID + ')' : '';
+
+    btnWa.style.display = 'none';
+    btnGm.style.display = 'none';
+
+    if (rawPhone && md.phone_type === 'mobile') {
+      var digits = rawPhone.replace(/\D/g, '');
+      var msgWa  = 'Hola ' + (conv.client_name || '') + ', te escribimos de Polyplas. Tal como conversamos, te enviamos la cotización que solicitaste' + refLabel + '. Cualquier consulta estamos aquí.';
+      btnWa.href = 'https://wa.me/' + digits + '?text=' + encodeURIComponent(msgWa);
+      btnWa.style.display = 'flex';
+    } else if (conv.client_email && (!md.phone_type || md.phone_type === 'landline')) {
+      var subject = 'Cotización solicitada · Polyplas' + (md.refID ? ' · ' + md.refID : '');
+      var body    = 'Estimado/a ' + (conv.client_name || '') + ',\n\nEn seguimiento a nuestra conversación, te hacemos llegar la cotización que nos solicitaste' + refLabel + '.\n\nQuedamos a tu disposición ante cualquier consulta.\n\nSaludos,\nMaca · Polyplas';
+      btnGm.href  = 'https://mail.google.com/mail/?view=cm&fs=1&to=' + encodeURIComponent(conv.client_email) + '&su=' + encodeURIComponent(subject) + '&body=' + encodeURIComponent(body);
+      btnGm.style.display = 'flex';
+    }
+
+    sb.from('messages').select('*').eq('conversation_id', id).order('created_at')
+      .then(function(res) {
+        var container = document.getElementById('chat-messages');
+        container.innerHTML = '';
+        var msgs = res.data || [];
+        var accumulated = {};
+        for (var i = 0; i < msgs.length; i++) {
+          renderMsg(msgs[i]);
+          mergeTags(accumulated, detectTags(msgs[i].content));
+          // Marcar si ya se envió la respuesta automática de dirección
+          if (msgs[i].sender === 'agent' && msgs[i].content.indexOf('Santiago Concha') !== -1) {
+            accumulated.address_sent = true;
+          }
+        }
+        convTags[id] = accumulated;
+        updateHeaderTags(accumulated);
+        container.scrollTop = container.scrollHeight;
+        renderConvs();
+      });
+
+    sb.from('conversations').update({unread_count: 0}).eq('id', id).then(function() {
+      conv.unread_count = 0;
+      renderConvs();
+    });
+  }
+
+  function renderMsg(m) {
+    var container = document.getElementById('chat-messages');
+    var div = document.createElement('div');
+    var hits = detectTags(m.content);
+    var hasHit = hasTags(hits);
+    div.className = 'msg ' + m.sender + (hasHit ? ' tag-hit' : '');
+    var t = new Date(m.created_at);
+    var time = ('0' + t.getHours()).slice(-2) + ':' + ('0' + t.getMinutes()).slice(-2);
+    div.innerHTML = linkify(esc(m.content)) + '<span class="time">' + time + '</span>';
+    container.appendChild(div);
+    container.scrollTop = container.scrollHeight;
+    return hits;
+  }
+
+  function updateHeaderTags(tags) {
+    var ids = ['quote', 'price', 'address', 'payment'];
+    for (var i = 0; i < ids.length; i++) {
+      var el = document.getElementById('cht-' + ids[i]);
+      if (el) el.style.display = tags[ids[i]] ? 'inline-flex' : 'none';
+    }
+  }
+
+  function sendReply() {
+    var input = document.getElementById('chat-input');
+    var text = input.value.trim();
+    if (!text || !currentConvId) return;
+    input.value = '';
+    var hits = renderMsg({sender: 'agent', content: text, created_at: new Date().toISOString()});
+    if (hasTags(hits)) {
+      if (!convTags[currentConvId]) convTags[currentConvId] = {};
+      mergeTags(convTags[currentConvId], hits);
+      updateHeaderTags(convTags[currentConvId]);
+      renderConvs();
+    }
+    sb.from('messages').insert({conversation_id: currentConvId, sender: 'agent', content: text}).then(function(){});
+    sb.from('conversations').update({last_message_at: new Date().toISOString()}).eq('id', currentConvId).then(function(){});
+  }
+
+  function subscribe() {
+    sb.channel('msgs')
+      .on('postgres_changes', {event: 'INSERT', schema: 'public', table: 'messages'}, function(payload) {
+        var m = payload.new;
+        if (m.sender === 'client') {
+          var hits = detectTags(m.content);
+          if (!convTags[m.conversation_id]) convTags[m.conversation_id] = {};
+          var alreadySentAddress = convTags[m.conversation_id].address_sent;
+          mergeTags(convTags[m.conversation_id], hits);
+
+          // Respuesta automática de dirección (solo una vez por conversación)
+          if (hits.address && !alreadySentAddress) {
+            convTags[m.conversation_id].address_sent = true;
+            sendAutoReply(m.conversation_id, AUTO_REPLY_ADDRESS);
+          }
+
+          if (m.conversation_id === currentConvId) {
+            renderMsg(m);
+            if (hasTags(hits)) updateHeaderTags(convTags[currentConvId]);
+            sb.from('conversations').update({unread_count: 0}).eq('id', currentConvId).then(function(){});
+          } else {
+            beep();
+          }
+          loadConvs();
+        }
+      }).subscribe();
+
+    sb.channel('convs')
+      .on('postgres_changes', {event: 'INSERT', schema: 'public', table: 'conversations'}, function() {
+        beep(); loadConvs();
+      })
+      .on('postgres_changes', {event: 'UPDATE', schema: 'public', table: 'conversations'}, function() {
+        loadConvs();
+      }).subscribe();
+  }
+
+  function beep() {
+    try {
+      var ctx = new (window.AudioContext || window.webkitAudioContext)();
+      var o = ctx.createOscillator(); var g = ctx.createGain();
+      o.connect(g); g.connect(ctx.destination);
+      o.frequency.value = 880; g.gain.value = 0.1;
+      o.start(); o.stop(ctx.currentTime + 0.15);
+    } catch(e) {}
+  }
+
+  function timeAgo(date) {
+    var d = (Date.now() - new Date(date).getTime()) / 1000;
+    if (d < 60) return 'Ahora';
+    if (d < 3600) return Math.floor(d/60) + ' min';
+    if (d < 86400) return Math.floor(d/3600) + ' h';
+    return Math.floor(d/86400) + ' d';
+  }
+
+  function esc(s) {
+    if (!s) return '';
+    return String(s).replace(/[&<>"']/g, function(c) {
+      return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c];
+    });
+  }
+
+  function linkify(text) {
+    return text.replace(/(https?:\/\/[^\s<]+)/g, '<a href="$1" target="_blank" rel="noopener noreferrer">$1</a>');
+  }
+
+})();
+</script>
+</body>
+</html>
