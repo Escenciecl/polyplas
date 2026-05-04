@@ -203,7 +203,7 @@
   <source src="data:audio/mp3;base64,SUQzBAAAAAAAI1RTU0UAAAAPAAADTGF2ZjU4Ljc2LjEwMAAAAAAAAAAAAAAA//tQwAADB" type="audio/mp3">
 </audio>
 
-<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="https://unpkg.com/@supabase/supabase-js@2"></script>
 <script>
   // ===== CONFIG =====
   const SUPABASE_URL = 'https://gdrkscedvkjtcvexnhzg.supabase.co';
@@ -211,28 +211,47 @@
   const PASSWORD = 'maca2026'; // CAMBIA ESTO. Es una capa simple, no es seguridad real.
   // ==================
 
-  const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+  let supabase = null;
   let currentConvId = null;
   let conversations = [];
   let titleBlinker = null;
   const originalTitle = document.title;
 
   function doLogin() {
-    if (document.getElementById('pwd').value === PASSWORD) {
+    const pwd = document.getElementById('pwd').value;
+    if (pwd === PASSWORD) {
       sessionStorage.setItem('pp_logged', '1');
       showApp();
     } else {
-      alert('Contraseña incorrecta');
+      alert('Contraseña incorrecta. Asegúrate de escribirla exactamente igual.');
     }
   }
-  if (sessionStorage.getItem('pp_logged') === '1') showApp();
+
+  // Asignar funciones al window para que sean accesibles desde los onclick
+  window.doLogin = doLogin;
+
+  document.addEventListener('DOMContentLoaded', function() {
+    if (typeof window.supabase !== 'undefined') {
+      supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+    } else {
+      console.error('Supabase SDK no se cargó. Revisa tu conexión a internet.');
+    }
+    if (sessionStorage.getItem('pp_logged') === '1') showApp();
+  });
 
   function showApp() {
     document.getElementById('login').style.display = 'none';
     document.getElementById('app').classList.add('active');
+    if (!supabase) {
+      document.getElementById('conversations').innerHTML = '<div class="empty-conv">Error: no se pudo conectar a la base de datos. Revisa tu conexión a internet y refresca la página.</div>';
+      return;
+    }
     loadConversations();
     subscribeAll();
   }
+  window.showApp = showApp;
+  window.openConversation = (id) => openConversation(id);
+  window.sendReply = () => sendReply();
 
   async function loadConversations() {
     const { data, error } = await supabase.from('conversations')
