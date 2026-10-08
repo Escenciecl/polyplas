@@ -2299,6 +2299,17 @@
       }
     });
     tbody.innerHTML = html;
+    // Aviso: productos cuyo precio actual aún no está guardado en Supabase (la web usaría su precio de respaldo)
+    Array.prototype.forEach.call(tbody.querySelectorAll('tr'), function(tr) {
+      if (!esModelo(tr.getAttribute('data-tipo'))) return;
+      var d = stockData[tr.getAttribute('data-key')];
+      if (d && d.precio > 0) return;
+      var inp = tr.querySelector('input[data-field="precio"]');
+      if (!inp) return;
+      inp.style.borderColor = '#dc2626';
+      inp.title = 'Precio sin guardar: confirma el precio y sal de la casilla para guardarlo';
+      inp.parentNode.insertAdjacentHTML('beforeend', '<div class="pp-falta-precio" style="font-size:10px;color:#dc2626;font-weight:700;margin-top:2px">Sin guardar</div>');
+    });
 
     // Mostrar/ocultar panel faldón y actualizar toggle
     var faldonPanel = document.getElementById('faldon-config-panel');
@@ -2450,18 +2461,23 @@
         input.className = stockInputClass(qty);
         var estEl = document.getElementById('est-' + key.replace(/[|.]/g,'_'));
         if (estEl) estEl.innerHTML = stockBadge(qty);
-        var _precioActual = (stockData[key] && stockData[key].precio != null) ? stockData[key].precio : null;
+        var _precioActual = (stockData[key] && stockData[key].precio > 0) ? stockData[key].precio : null;
         // Si aún no hay precio guardado, se guarda el que muestra la fila: así la web siempre lee el del CRM
         if (_precioActual == null) {
           var _pInp = tr.querySelector('input[data-field="precio"]');
-          var _pVal = _pInp ? (parseInt(_pInp.value) || 0) : 0;
-          if (_pVal > 0) _precioActual = _pVal;
+          var _pVal = _pInp ? (parseInt(_pInp.value) || parseInt(_pInp.getAttribute('placeholder')) || 0) : 0;
+          if (_pVal > 0) { _precioActual = _pVal; if (_pInp) { _pInp.value = _pVal; _pInp.style.borderColor = ''; } var _a2 = tr.querySelector('.pp-falta-precio'); if (_a2) _a2.remove(); }
         }
         sb.from('pp_stock').upsert({ tipo:tr.getAttribute('data-tipo'), dim:tr.getAttribute('data-dim'), color:tr.getAttribute('data-color'), espesor:tr.getAttribute('data-esp'), cantidad:qty, precio:_precioActual }, { onConflict:'tipo,dim,color,espesor' }).then(function(){});
         if (stockData[key]) stockData[key].cantidad = qty; else stockData[key] = { cantidad:qty, precio:_precioActual };
       } else if (field === 'precio' || field === 'precio_antes') {
         var val = Math.max(0, parseInt(input.value) || 0);
-        input.value = val;
+        // El precio actual no puede quedar vacío ni en 0: se vuelve al último guardado o al de referencia
+        if (field === 'precio' && val <= 0) {
+          val = (stockData[key] && stockData[key].precio > 0) ? stockData[key].precio : (parseInt(input.getAttribute('placeholder')) || 0);
+          if (val <= 0) { input.value = ''; return; }
+        }
+        input.value = (field === 'precio_antes' && val === 0) ? '' : val;
         var _cantidadActual = (stockData[key] && stockData[key].cantidad != null) ? stockData[key].cantidad : null;
         // Sin cantidad guardada: se usa la que muestra la fila
         if (_cantidadActual == null) {
@@ -2469,9 +2485,21 @@
           _cantidadActual = _cInp ? Math.max(0, parseInt(_cInp.value) || 0) : 99;
         }
         var upsertObj = { tipo:tr.getAttribute('data-tipo'), dim:tr.getAttribute('data-dim'), color:tr.getAttribute('data-color'), espesor:tr.getAttribute('data-esp'), cantidad:_cantidadActual };
-        upsertObj[field] = val;
+        upsertObj[field] = (field === 'precio_antes' && val === 0) ? null : val;
+        // Si se edita el "precio antes" y el precio actual aún no está guardado, se guarda el que muestra la fila
+        if (field === 'precio_antes' && !(stockData[key] && stockData[key].precio > 0)) {
+          var _pIn = tr.querySelector('input[data-field="precio"]');
+          var _pV = _pIn ? (parseInt(_pIn.value) || parseInt(_pIn.getAttribute('placeholder')) || 0) : 0;
+          if (_pV > 0) { upsertObj.precio = _pV; if (_pIn) _pIn.value = _pV; }
+        }
         sb.from('pp_stock').upsert(upsertObj, { onConflict:'tipo,dim,color,espesor' }).then(function(){});
         if (stockData[key]) stockData[key][field] = val; else { stockData[key] = { cantidad:_cantidadActual }; stockData[key][field] = val; }
+        if (upsertObj.precio > 0) {
+          stockData[key].precio = upsertObj.precio;
+          var _pp = tr.querySelector('input[data-field="precio"]');
+          if (_pp) { _pp.style.borderColor = ''; _pp.title = ''; }
+          var _av = tr.querySelector('.pp-falta-precio'); if (_av) _av.remove();
+        }
         // Recalcular ahorro en pantalla
         var keyVal = tr.getAttribute('data-key');
         var ahorroEl = document.getElementById('ahorro-' + (keyVal || '').replace(/[|.]/g,'_'));
