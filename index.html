@@ -636,6 +636,8 @@
   .pp-sw input:checked + .pp-sw-slider { background:#16a34a; }
   .pp-sw input:checked + .pp-sw-slider::before { transform:translateX(20px); }
   #faldon-toggle-status { margin-top:10px; font-size:11.5px; min-height:16px; transition:color .2s; }
+  /* Las categorías pasan a varias filas si no caben */
+  .stock-type-tabs { flex-wrap: wrap !important; overflow: visible !important; }
 </style>
 </head>
 <body>
@@ -760,13 +762,14 @@
         <div class="stock-header-top">
           <div>
             <h2>Gestión de Stock</h2>
-            <p>Ingresa la cantidad de planchas disponibles por combinación. <strong>0 = Sin stock</strong> (se bloquea en el panel de precios). El precio puede modificarse y se aplica automáticamente al widget.</p>
+            <p>Aquí se definen el precio, el precio anterior y la cantidad de todos los productos de polyplas.cl. <strong>0 = Sin stock</strong> (se bloquea la compra en la web). Los cambios se guardan al salir de cada casilla y la web los toma en 1 a 2 minutos.</p>
           </div>
           <div class="stock-search-wrap">
             <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/></svg>
             <input type="text" id="stock-search" placeholder="Buscar tipo, dimensión, color, espesor…" />
             <button id="stock-search-clear" title="Limpiar">✕</button>
           </div>
+          <button type="button" id="np-abrir" style="margin-left:10px;padding:9px 14px;border:0;border-radius:8px;background:#004a99;color:#fff;font-weight:600;font-size:13px;cursor:pointer;white-space:nowrap">＋ Nuevo producto</button>
 
         </div>
         <div class="sp-legend">
@@ -776,6 +779,23 @@
           <span id="stock-search-count" style="margin-left:auto;color:#6b7280;font-size:12px;"></span>
         </div>
       </div>
+      <!-- Nuevo producto: crea la fila en pp_stock; la web lo lee con la clave CATEGORIA|codigo -->
+      <form id="np-form" style="display:none;margin:0 0 14px;padding:14px 16px;border:1px solid #dde4ef;border-radius:10px;background:#f7f9fd">
+        <div style="font-weight:700;margin-bottom:4px">Nuevo producto</div>
+        <div style="font-size:12px;color:#6b7280;margin-bottom:10px">Para productos que no son planchas. Queda guardado en Supabase y su página web toma de aquí el precio, el precio anterior y el stock usando la clave que se muestra abajo.</div>
+        <div style="display:flex;flex-wrap:wrap;gap:10px;align-items:flex-end">
+          <label style="font-size:12px;font-weight:600">Categoría<br><select id="np-tipo" style="height:36px;min-width:190px;margin-top:4px"></select></label>
+          <label id="np-tipo-nuevo-wrap" style="font-size:12px;font-weight:600;display:none">Nombre de la categoría<br><input id="np-tipo-nuevo" type="text" maxlength="30" placeholder="Ej: Griferia" style="height:36px;width:160px;margin-top:4px;padding:0 8px"></label>
+          <label style="font-size:12px;font-weight:600">Código del producto<br><input id="np-dim" type="text" maxlength="40" placeholder="Ej: monomando_cromo" style="height:36px;width:190px;margin-top:4px;padding:0 8px" required></label>
+          <label style="font-size:12px;font-weight:600">Precio actual<br><input id="np-precio" type="number" min="1" step="1" style="height:36px;width:120px;margin-top:4px;padding:0 8px" required></label>
+          <label style="font-size:12px;font-weight:600">Precio antes<br><input id="np-antes" type="number" min="0" step="1" placeholder="Opcional" style="height:36px;width:120px;margin-top:4px;padding:0 8px"></label>
+          <label style="font-size:12px;font-weight:600">Cantidad<br><input id="np-cant" type="number" min="0" max="999" value="10" style="height:36px;width:90px;margin-top:4px;padding:0 8px" required></label>
+          <button type="submit" style="height:36px;padding:0 16px;border:0;border-radius:8px;background:#16a34a;color:#fff;font-weight:600;cursor:pointer">Guardar</button>
+          <button type="button" id="np-cancelar" style="height:36px;padding:0 12px;border:1px solid #cbd5e1;border-radius:8px;background:#fff;cursor:pointer">Cancelar</button>
+        </div>
+        <div id="np-clave" style="margin-top:10px;font-size:12px;color:#374151"></div>
+        <div id="np-estado" style="margin-top:6px;font-size:12px"></div>
+      </form>
       <div class="stock-groups-wrap">
         <div class="stock-type-tabs" id="stock-type-tabs"></div>
         <div class="stock-table-wrap" id="stock-table-wrap">
@@ -2014,7 +2034,30 @@
     ['RECEPTACULOS','Receptáculos de Ducha','80x80_cuad','Receptáculo Cuadrado 80×80 cm','na','—','na'],
     ['RECEPTACULOS','Receptáculos de Ducha','90x90_cuad','Receptáculo Cuadrado 90×90 cm','na','—','na'],
     ['RECEPTACULOS','Receptáculos de Ducha','90x90_esq', 'Receptáculo Esquinero 90×90 cm','na','—','na'],
+    // ── Cascos de tinas, columna de ducha y mampara (la web lee estas mismas claves) ──
+    ['CASCOS','Cascos de Tinas','coinco', 'Casco de Tina Coinco', 'na','—','na'],
+    ['CASCOS','Cascos de Tinas','queilen','Casco de Tina Queilen','na','—','na'],
+    ['DUCHAS','Columnas de Ducha','columna','Columna de Ducha Acero Inoxidable','na','—','na'],
+    ['MAMPARAS','Mamparas de Ducha','vidrio','Mampara de Ducha de Vidrio','na','—','na'],
   ];
+
+  // Productos "por modelo" (todo lo que no es plancha): precio actual, precio antes y cantidad.
+  // Precios de referencia (se usan solo mientras el producto no tenga precio guardado en Supabase).
+  var OTROS_PRICES = { 'CASCOS|coinco':180000, 'CASCOS|queilen':180000, 'DUCHAS|columna':120000, 'MAMPARAS|vidrio':101150 };
+  var OTROS_SPECS  = {
+    'CASCOS|coinco':  'Solo el casco, sin hidromasaje',
+    'CASCOS|queilen': 'Solo el casco, sin hidromasaje',
+    'DUCHAS|columna': 'Acero inoxidable',
+    'MAMPARAS|vidrio':'Vidrio · para receptáculo o tina'
+  };
+  var TIPOS_PLANCHA = { AA:1, PA:1, SIN_MATERIAL:1 };
+  // Filas de pp_stock que no son productos (interruptores) y no deben listarse
+  var FILAS_CONFIG  = { 'TINAS|kuyen_faldon':1 };
+  function esModelo(tipo) { return !TIPOS_PLANCHA[tipo]; }
+  function etiquetaBonita(txt) {
+    var t = String(txt || '').replace(/_/g, ' ').toLowerCase();
+    return t.charAt(0).toUpperCase() + t.slice(1);
+  }
 
   // Precios y specs de referencia para tinas (fallback si Supabase no tiene precio guardado)
   var TINAS_PRICES = { vilcun:479990, queilen:489490, coinco:499990, kuyen:979990, antuco:479990 };
@@ -2086,6 +2129,7 @@
       if (res.data) res.data.forEach(function(r) {
         stockData[stockKey(r.tipo, r.dim, r.color, r.espesor)] = { cantidad: r.cantidad, precio: r.precio, precio_antes: r.precio_antes };
       });
+      incorporarProductosDeBD();
       renderStockPanel();
     });
   }
@@ -2096,8 +2140,27 @@
     { tipo:'SIN_MATERIAL', label:'Sin material',           icon:'📦' },
     { tipo:'TINAS',        label:'Tinas Hidromasaje',      icon:'🛁' },
     { tipo:'CUPULAS',      label:'Cúpulas de Acrílico',   icon:'🔵' },
-    { tipo:'RECEPTACULOS', label:'Receptáculos de Ducha', icon:'🚿' }
+    { tipo:'RECEPTACULOS', label:'Receptáculos de Ducha', icon:'🚿' },
+    { tipo:'CASCOS',       label:'Cascos de Tinas',        icon:'🛁' },
+    { tipo:'DUCHAS',       label:'Columnas de Ducha',      icon:'🚿' },
+    { tipo:'MAMPARAS',     label:'Mamparas de Ducha',      icon:'🪟' }
   ];
+
+  // Productos creados desde "Nuevo producto" (o directamente en Supabase): cualquier fila de pp_stock
+  // con color 'na' y espesor 'na' que no esté en la lista fija se agrega sola a su categoría.
+  function incorporarProductosDeBD() {
+    var existentes = {};
+    STOCK_ROWS.forEach(function(r){ existentes[stockKey(r[0], r[2], r[4], r[6])] = 1; });
+    Object.keys(stockData).forEach(function(key) {
+      var p = key.split('|');
+      if (p.length !== 4 || p[2] !== 'na' || p[3] !== 'na') return;
+      if (existentes[key] || FILAS_CONFIG[p[0] + '|' + p[1]] || TIPOS_PLANCHA[p[0]] || p[0] === 'POLICARBONATO') return;
+      var grupo = STOCK_GROUPS.filter(function(g){ return g.tipo === p[0]; })[0];
+      if (!grupo) { grupo = { tipo:p[0], label:etiquetaBonita(p[0]), icon:'📦' }; STOCK_GROUPS.push(grupo); }
+      STOCK_ROWS.push([p[0], grupo.label, p[1], etiquetaBonita(p[1]), 'na', '—', 'na']);
+      existentes[key] = 1;
+    });
+  }
   var activeStockTipo = 'AA';
 
   function renderStockRows(tipo) {
@@ -2106,7 +2169,7 @@
 
     // Actualizar encabezados de la tabla según el tipo activo
     var theadRow = tbody.closest('table').querySelector('thead tr');
-    if (tipo === 'TINAS' || tipo === 'CUPULAS' || tipo === 'RECEPTACULOS' || tipo === 'POLICARBONATO') {
+    if (esModelo(tipo)) {
       theadRow.innerHTML =
         '<th>Modelo</th><th>Especificaciones</th>' +
         '<th class="th-precio">Precio actual</th><th class="th-precio">Precio antes</th><th class="th-precio">Ahorro</th><th class="th-qty">Cantidad</th><th class="th-est">Estado</th>';
@@ -2199,6 +2262,26 @@
           '<td class="td-qty"><input type="number" min="0" max="999" value="' + qty + '" class="' + stockInputClass(qty) + '" data-field="cantidad" data-key="' + key + '"></td>' +
           '<td class="td-est" id="est-' + key.replace(/[|.]/g,'_') + '">' + stockBadge(qty) + '</td>' +
           '</tr>';
+      } else if (esModelo(tipo)) {
+        // ── Fila genérica por modelo (cascos, duchas, mamparas y productos nuevos) ──
+        var claveWeb            = tipo + '|' + dim;
+        var qty                 = (row.cantidad !== undefined && row.cantidad !== null) ? row.cantidad : 10;
+        var precioDefault       = OTROS_PRICES[claveWeb] || 0;
+        var precioGuardado      = (row.precio !== null && row.precio !== undefined) ? row.precio : precioDefault;
+        var precioAntesGuardado = (row.precio_antes !== null && row.precio_antes !== undefined) ? row.precio_antes : '';
+        var ahorro = (precioAntesGuardado && precioGuardado && precioAntesGuardado > precioGuardado)
+          ? '$ ' + (precioAntesGuardado - precioGuardado).toLocaleString('es-CL')
+          : '—';
+        var searchText = [tipoL, dimL, dim, OTROS_SPECS[claveWeb] || ''].join(' ').toLowerCase();
+        html += '<tr data-key="' + key + '" data-tipo="' + tipo + '" data-dim="' + dim + '" data-color="' + color + '" data-esp="' + esp + '" data-search="' + searchText + '">' +
+          '<td class="td-dim" style="font-weight:600">' + dimL + '</td>' +
+          '<td class="td-color" style="font-size:11px;color:#6b7280">' + (OTROS_SPECS[claveWeb] || '—') + '<br><span style="font-family:monospace;color:#9ca3af">' + claveWeb + '</span></td>' +
+          '<td class="td-precio"><input type="number" min="0" step="500" value="' + (precioGuardado || '') + '" placeholder="' + (precioDefault || '') + '" class="stock-price-input" data-field="precio" data-key="' + key + '"></td>' +
+          '<td class="td-precio"><input type="number" min="0" step="500" value="' + precioAntesGuardado + '" placeholder="Precio tachado" class="stock-price-input" data-field="precio_antes" data-key="' + key + '"></td>' +
+          '<td class="td-precio" id="ahorro-' + key.replace(/[|.]/g,'_') + '" style="text-align:center;font-size:12px;color:#16a34a;font-weight:600">' + ahorro + '</td>' +
+          '<td class="td-qty"><input type="number" min="0" max="999" value="' + qty + '" class="' + stockInputClass(qty) + '" data-field="cantidad" data-key="' + key + '"></td>' +
+          '<td class="td-est" id="est-' + key.replace(/[|.]/g,'_') + '">' + stockBadge(qty) + '</td>' +
+          '</tr>';
       } else {
         // ── Fila de acrílico (AA / PA) — sin cambios ─────────
         var qty          = (row.cantidad != null) ? row.cantidad : 99;
@@ -2235,7 +2318,66 @@
     }
   }
 
+  // ── Nuevo producto ───────────────────────────────────────
+  function codigoLimpio(txt, mayus) {
+    var t = String(txt || '').trim().normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/[^A-Za-z0-9]+/g, '_').replace(/^_+|_+$/g, '');
+    return mayus ? t.toUpperCase() : t.toLowerCase();
+  }
+  function initNuevoProducto() {
+    var form = document.getElementById('np-form');
+    if (!form || form._pp_init) return;
+    form._pp_init = true;
+    var sel = document.getElementById('np-tipo'), nuevoWrap = document.getElementById('np-tipo-nuevo-wrap');
+    var claveEl = document.getElementById('np-clave'), estadoEl = document.getElementById('np-estado');
+    function tipoElegido() { return sel.value === '__nueva' ? codigoLimpio(document.getElementById('np-tipo-nuevo').value, true) : sel.value; }
+    function llenarCategorias() {
+      sel.innerHTML = STOCK_GROUPS.filter(function(g){ return esModelo(g.tipo); }).map(function(g) {
+        return '<option value="' + g.tipo + '">' + g.label + '</option>';
+      }).join('') + '<option value="__nueva">＋ Nueva categoría…</option>';
+    }
+    function pintarClave() {
+      nuevoWrap.style.display = sel.value === '__nueva' ? '' : 'none';
+      var t = tipoElegido(), d = codigoLimpio(document.getElementById('np-dim').value, false);
+      claveEl.innerHTML = (t && d) ? 'Clave para la página web: <code style="background:#eef3fc;padding:2px 6px;border-radius:4px">' + t + '|' + d + '</code>' : '';
+    }
+    document.getElementById('np-abrir').addEventListener('click', function() {
+      llenarCategorias();
+      if (esModelo(activeStockTipo)) sel.value = activeStockTipo;
+      form.style.display = form.style.display === 'none' ? 'block' : 'none';
+      estadoEl.textContent = '';
+      pintarClave();
+    });
+    document.getElementById('np-cancelar').addEventListener('click', function() { form.style.display = 'none'; });
+    form.addEventListener('input', pintarClave);
+    form.addEventListener('change', pintarClave);
+    form.addEventListener('submit', function(e) {
+      e.preventDefault();
+      var tipo = tipoElegido(), dim = codigoLimpio(document.getElementById('np-dim').value, false);
+      var precio = parseInt(document.getElementById('np-precio').value) || 0;
+      var antes  = parseInt(document.getElementById('np-antes').value) || 0;
+      var cant   = Math.max(0, parseInt(document.getElementById('np-cant').value) || 0);
+      function error(msg) { estadoEl.style.color = '#b91c1c'; estadoEl.textContent = msg; }
+      if (!tipo || !dim) return error('Falta la categoría o el código del producto.');
+      if (TIPOS_PLANCHA[tipo] || tipo === 'POLICARBONATO') return error('Esa categoría está reservada para planchas.');
+      if (precio <= 0) return error('Ingresa el precio actual.');
+      if (antes && antes <= precio) return error('El precio antes debe ser mayor que el precio actual (o déjalo vacío).');
+      if (stockData[stockKey(tipo, dim, 'na', 'na')]) return error('Ya existe un producto con esa clave. Edítalo en la tabla.');
+      if (!sb) return error('Sin conexión a Supabase.');
+      estadoEl.style.color = '#6b7280'; estadoEl.textContent = 'Guardando…';
+      sb.from('pp_stock').upsert(
+        { tipo:tipo, dim:dim, color:'na', espesor:'na', cantidad:cant, precio:precio, precio_antes: antes || null },
+        { onConflict:'tipo,dim,color,espesor' }
+      ).then(function(res) {
+        if (res.error) return error('No se pudo guardar: ' + res.error.message);
+        form.reset(); form.style.display = 'none';
+        activeStockTipo = tipo;
+        loadStock();
+      });
+    });
+  }
+
   function renderStockPanel() {
+    initNuevoProducto();
     // Renderizar tabs
     var tabsEl = document.getElementById('stock-type-tabs');
     if (tabsEl) {
@@ -2293,6 +2435,8 @@
     // Guardar cambios
     var tableWrap = document.getElementById('stock-table-wrap');
     if (!tableWrap) return;
+    if (tableWrap._pp_init) return; // el panel se vuelve a dibujar al recargar: escuchar una sola vez
+    tableWrap._pp_init = true;
     tableWrap.addEventListener('change', function(e) {
       var input = e.target;
       if (input.type !== 'number') return;
@@ -2307,16 +2451,27 @@
         var estEl = document.getElementById('est-' + key.replace(/[|.]/g,'_'));
         if (estEl) estEl.innerHTML = stockBadge(qty);
         var _precioActual = (stockData[key] && stockData[key].precio != null) ? stockData[key].precio : null;
+        // Si aún no hay precio guardado, se guarda el que muestra la fila: así la web siempre lee el del CRM
+        if (_precioActual == null) {
+          var _pInp = tr.querySelector('input[data-field="precio"]');
+          var _pVal = _pInp ? (parseInt(_pInp.value) || 0) : 0;
+          if (_pVal > 0) _precioActual = _pVal;
+        }
         sb.from('pp_stock').upsert({ tipo:tr.getAttribute('data-tipo'), dim:tr.getAttribute('data-dim'), color:tr.getAttribute('data-color'), espesor:tr.getAttribute('data-esp'), cantidad:qty, precio:_precioActual }, { onConflict:'tipo,dim,color,espesor' }).then(function(){});
         if (stockData[key]) stockData[key].cantidad = qty; else stockData[key] = { cantidad:qty, precio:_precioActual };
       } else if (field === 'precio' || field === 'precio_antes') {
         var val = Math.max(0, parseInt(input.value) || 0);
         input.value = val;
-        var _cantidadActual = (stockData[key] && stockData[key].cantidad != null) ? stockData[key].cantidad : 99;
+        var _cantidadActual = (stockData[key] && stockData[key].cantidad != null) ? stockData[key].cantidad : null;
+        // Sin cantidad guardada: se usa la que muestra la fila
+        if (_cantidadActual == null) {
+          var _cInp = tr.querySelector('input[data-field="cantidad"]');
+          _cantidadActual = _cInp ? Math.max(0, parseInt(_cInp.value) || 0) : 99;
+        }
         var upsertObj = { tipo:tr.getAttribute('data-tipo'), dim:tr.getAttribute('data-dim'), color:tr.getAttribute('data-color'), espesor:tr.getAttribute('data-esp'), cantidad:_cantidadActual };
         upsertObj[field] = val;
         sb.from('pp_stock').upsert(upsertObj, { onConflict:'tipo,dim,color,espesor' }).then(function(){});
-        if (stockData[key]) stockData[key][field] = val; else stockData[key] = { cantidad:_cantidadActual };
+        if (stockData[key]) stockData[key][field] = val; else { stockData[key] = { cantidad:_cantidadActual }; stockData[key][field] = val; }
         // Recalcular ahorro en pantalla
         var keyVal = tr.getAttribute('data-key');
         var ahorroEl = document.getElementById('ahorro-' + (keyVal || '').replace(/[|.]/g,'_'));
