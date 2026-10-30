@@ -2940,11 +2940,14 @@
         fd('Email',     m.email    || o.client_email || '—') +
         fd('Teléfono',  m.phone    || '—') +
       '</div>' +
-      '<div class="fd-section"><h4>Dirección de entrega</h4>' +
-        fd('Modalidad',       m.entrega || '—') +
-        fd('Dirección',       m.dir     || '—') +
-        fd('Ciudad / Comuna', m.ciudad  || '—') +
-        fd('Región',          m.region  || '—') +
+      '<div class="fd-section"><h4>Dirección de facturación</h4>' +
+        fd('Dirección', m.dir_factura || m.dir || '<span style="color:#ef4444;font-weight:700">FALTA · pedir al cliente</span>') +
+        fd('Ciudad / Comuna', m.ciudad_factura || m.ciudad || '—') +
+        fd('Región', m.region_factura || m.region || '—') +
+      '</div>' +
+      '<div class="fd-section"><h4>Entrega</h4>' +
+        fd('Modalidad', m.entrega || '—') +
+        ((m.dir_factura && m.dir && m.dir !== m.dir_factura) ? fd('Dirección despacho', m.dir + (m.ciudad ? ', ' + m.ciudad : '')) : '') +
       '</div>' +
       '<div class="fd-section"><h4>Productos</h4>' + (itemsHtml || '—') + _resumenHtml + '</div>' +
       (corteDetalleHtml ? '<div class="fd-section"><h4>Servicio de corte</h4>' + corteDetalleHtml + '</div>' :
@@ -3559,11 +3562,14 @@
         fd('Email', m.email || o.client_email || '—') +
         fd('Teléfono', m.phone || '—') +
       '</div>' +
-      '<div class="fd-section"><h4>Dirección de entrega</h4>' +
+      '<div class="fd-section"><h4>Dirección de facturación</h4>' +
+        fd('Dirección', m.dir_factura || m.dir || '<span style="color:#ef4444;font-weight:700">FALTA · pedir al cliente</span>') +
+        fd('Ciudad / Comuna', m.ciudad_factura || m.ciudad || '—') +
+        fd('Región', m.region_factura || m.region || '—') +
+      '</div>' +
+      '<div class="fd-section"><h4>Entrega</h4>' +
         fd('Modalidad', m.entrega || '—') +
-        fd('Dirección', m.dir || '—') +
-        fd('Ciudad / Comuna', m.ciudad || '—') +
-        fd('Región', m.region || '—') +
+        ((m.dir_factura && m.dir && m.dir !== m.dir_factura) ? fd('Dirección despacho', m.dir + (m.ciudad ? ', ' + m.ciudad : '')) : '') +
       '</div>' +
       '<div class="fd-section"><h4>Productos</h4>' + (itemsHtml || '—') +
         '<div class="fd-total"><span>Total</span><span>' + total + '</span></div>' +
@@ -3608,9 +3614,9 @@
         m.rut_contacto || '',
         m.email || o.client_email || '',
         m.phone || '',
-        m.region || '',
-        m.ciudad || '',
-        m.dir || '',
+        m.region_factura || m.region || '',
+        m.ciudad_factura || m.ciudad || '',
+        m.dir_factura || m.dir || '',
         m.entrega || '',
         m.total || ''
       ].map(function(v){ return '"' + String(v).replace(/"/g,'""') + '"'; }).join(',');
