@@ -343,6 +343,7 @@
   #section-stock,
   #section-pedidos,
   #section-ventas,
+  #section-despachos,
   #section-facturacion {
     flex-direction: column; background: var(--bg); padding: 28px; gap: 18px;
   }
@@ -635,6 +636,26 @@
   .pp-sw-slider::before { content:''; position:absolute; width:20px; height:20px; left:3px; bottom:3px; border-radius:50%; background:#fff; box-shadow:0 1px 4px rgba(0,0,0,.18); transition:transform 0.22s; }
   .pp-sw input:checked + .pp-sw-slider { background:#16a34a; }
   .pp-sw input:checked + .pp-sw-slider::before { transform:translateX(20px); }
+  /* Despachos */
+  #section-despachos { overflow-y: auto; }
+  .desp-resumen { background:#fff; border:1.5px solid #e8eef6; border-left:4px solid var(--brand); border-radius:12px; padding:14px 18px; font-size:13px; color:var(--text-body); line-height:1.5; max-width:860px; }
+  .desp-resumen strong { color:var(--text-primary); }
+  .desp-grid { display:grid; gap:14px; max-width:860px; }
+  .desp-card { background:#fff; border:1.5px solid #e8eef6; border-radius:12px; padding:16px 20px; }
+  .desp-card.apagado { background:#fafbfc; }
+  .desp-row { display:flex; align-items:center; gap:16px; flex-wrap:wrap; }
+  .desp-info { flex:1; min-width:220px; }
+  .desp-tit { font-size:14px; font-weight:700; color:var(--text-primary); margin-bottom:3px; }
+  .desp-sub { font-size:12px; color:var(--text-muted); line-height:1.45; }
+  .desp-monto { display:flex; align-items:center; gap:6px; font-size:12px; font-weight:600; color:var(--text-body); }
+  .desp-monto input { width:120px; height:36px; padding:0 10px; border:1px solid var(--border); border-radius:var(--radius-md); font-size:14px; font-weight:600; text-align:right; }
+  .desp-monto input:focus { outline:2px solid var(--brand-mid); outline-offset:1px; }
+  .desp-estado { font-size:11.5px; font-weight:700; min-width:74px; text-align:right; }
+  .desp-comunas { margin-top:10px; font-size:12px; color:var(--text-muted); }
+  .desp-comunas summary { cursor:pointer; color:var(--brand); font-weight:600; }
+  .desp-comunas p { margin-top:6px; line-height:1.5; }
+  .desp-status { margin-top:8px; font-size:11.5px; min-height:16px; }
+  .desp-nota { font-size:12px; color:var(--text-muted); max-width:860px; line-height:1.5; }
   #faldon-toggle-status { margin-top:10px; font-size:11.5px; min-height:16px; transition:color .2s; }
   /* Las categorías pasan a varias filas si no caben */
   .stock-type-tabs { flex-wrap: wrap !important; overflow: visible !important; }
@@ -677,6 +698,10 @@
       <button class="nav-tab" data-section="ventas">
         <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"/></svg>
         Ventas
+      </button>
+      <button class="nav-tab" data-section="despachos">
+        <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 7h11v9H3zM14 10h4l3 3v3h-7M7.5 19a1.5 1.5 0 100-3 1.5 1.5 0 000 3zm10 0a1.5 1.5 0 100-3 1.5 1.5 0 000 3z"/></svg>
+        Despachos
       </button>
     </div>
     <div class="nav-user">
@@ -950,6 +975,56 @@
           </tbody>
         </table>
       </div>
+    </section>
+
+    <!-- ── Sección: Despachos (configuración del despacho de polyplas.cl) ── -->
+    <section id="section-despachos" class="main-section">
+      <div class="section-header">
+        <h2>Despachos</h2>
+        <p>Aquí se prende o apaga el despacho de polyplas.cl y se definen sus montos. El checkout y la verificación de cada pago usan estos valores; la web los toma en 1 a 2 minutos. Los cambios se guardan al salir de la casilla o al mover el interruptor.</p>
+      </div>
+      <div class="desp-resumen" id="desp-resumen">Cargando configuración…</div>
+      <div class="desp-grid">
+        <div class="desp-card" data-desp="zona1">
+          <div class="desp-row">
+            <div class="desp-info">
+              <div class="desp-tit">Zona 1 · dentro de Américo Vespucio</div>
+              <div class="desp-sub">Tarifa del despacho a domicilio en compras bajo el monto del despacho gratis. 29 comunas.</div>
+            </div>
+            <label class="desp-monto">$ <input type="number" min="1" step="100" inputmode="numeric" data-desp-monto="zona1" aria-label="Tarifa Zona 1"></label>
+            <span class="desp-estado" data-desp-estado="zona1"></span>
+            <label class="pp-sw" title="Prender o apagar el despacho pagado en la Zona 1"><input type="checkbox" data-desp-activo="zona1"><span class="pp-sw-slider"></span></label>
+          </div>
+          <details class="desp-comunas"><summary>Ver comunas</summary><p>Santiago, Estación Central, Independencia, Recoleta, Quinta Normal, Providencia, Ñuñoa, Las Condes, Vitacura, La Reina, Peñalolén, Macul, Conchalí, Huechuraba, Renca, Lo Prado, Cerro Navia, Pudahuel, Maipú, Cerrillos, San Miguel, San Joaquín, Pedro Aguirre Cerda, Lo Espejo, La Cisterna, San Ramón, La Granja, El Bosque y La Florida.</p></details>
+          <div class="desp-status" data-desp-status="zona1"></div>
+        </div>
+        <div class="desp-card" data-desp="zona2">
+          <div class="desp-row">
+            <div class="desp-info">
+              <div class="desp-tit">Zona 2 · fuera de Américo Vespucio</div>
+              <div class="desp-sub">Tarifa del despacho a domicilio en compras bajo el monto del despacho gratis. 8 comunas.</div>
+            </div>
+            <label class="desp-monto">$ <input type="number" min="1" step="100" inputmode="numeric" data-desp-monto="zona2" aria-label="Tarifa Zona 2"></label>
+            <span class="desp-estado" data-desp-estado="zona2"></span>
+            <label class="pp-sw" title="Prender o apagar el despacho pagado en la Zona 2"><input type="checkbox" data-desp-activo="zona2"><span class="pp-sw-slider"></span></label>
+          </div>
+          <details class="desp-comunas"><summary>Ver comunas</summary><p>Puente Alto, La Pintana, San Bernardo, Padre Hurtado, Quilicura, Lo Barnechea, Lampa y Colina.</p></details>
+          <div class="desp-status" data-desp-status="zona2"></div>
+        </div>
+        <div class="desp-card" data-desp="gratis">
+          <div class="desp-row">
+            <div class="desp-info">
+              <div class="desp-tit">Despacho gratis desde</div>
+              <div class="desp-sub">Monto mínimo de compra (productos, IVA incluido) para despacho gratis en la Zona 1 y la Zona 2.</div>
+            </div>
+            <label class="desp-monto">$ <input type="number" min="1" step="1000" inputmode="numeric" data-desp-monto="gratis" aria-label="Monto mínimo del despacho gratis"></label>
+            <span class="desp-estado" data-desp-estado="gratis"></span>
+            <label class="pp-sw" title="Prender o apagar el despacho gratis"><input type="checkbox" data-desp-activo="gratis"><span class="pp-sw-slider"></span></label>
+          </div>
+          <div class="desp-status" data-desp-status="gratis"></div>
+        </div>
+      </div>
+      <p class="desp-nota"><strong>Sin despacho</strong> (solo retiro en tienda o flete propio): Pirque, San José de Maipo, Tiltil, Buin, Calera de Tango, Paine, Melipilla, Alhué, Curacaví, María Pinto, San Pedro, Talagante, Isla de Maipo, Peñaflor y El Monte. Para mover una comuna de zona hay que pedirlo: las zonas están definidas en el código del sitio.</p>
     </section>
 
   </div><!-- fin #app-body -->
@@ -2192,7 +2267,7 @@
     Object.keys(stockData).forEach(function(key) {
       var p = key.split('|');
       if (p.length !== 4 || p[2] !== 'na' || p[3] !== 'na') return;
-      if (existentes[key] || FILAS_CONFIG[p[0] + '|' + p[1]] || TIPOS_PLANCHA[p[0]] || p[0] === 'POLICARBONATO') return;
+      if (existentes[key] || FILAS_CONFIG[p[0] + '|' + p[1]] || TIPOS_PLANCHA[p[0]] || p[0] === 'POLICARBONATO' || p[0] === 'DESPACHO') return;
       var grupo = STOCK_GROUPS.filter(function(g){ return g.tipo === p[0]; })[0];
       if (!grupo) { grupo = { tipo:p[0], label:etiquetaBonita(p[0]), icon:'📦' }; STOCK_GROUPS.push(grupo); }
       STOCK_ROWS.push([p[0], grupo.label, p[1], etiquetaBonita(p[1]), 'na', '—', 'na']);
@@ -2554,6 +2629,94 @@
     });
   }
 
+  // ── Despachos ────────────────────────────────────────────
+  // Filas de configuración en pp_stock (color y espesor 'na'), que lee polyplas.cl:
+  //   DESPACHO|zona1 y DESPACHO|zona2 → precio = tarifa, cantidad 1 = prendido / 0 = apagado
+  //   DESPACHO|gratis                 → precio = monto mínimo del despacho gratis, cantidad 1/0
+  // Si una fila no existe, el sitio usa su respaldo (el mismo de DESP_RESPALDO).
+  var DESP_RESPALDO = { zona1:{ activo:false, monto:19000 }, zona2:{ activo:false, monto:30000 }, gratis:{ activo:true, monto:200000 } };
+  var despCfg = null;
+  var fmtCLP = function(n) { return '$' + Math.round(n || 0).toLocaleString('es-CL'); };
+  function loadDespachos() {
+    if (!sb) return;
+    sb.from('pp_stock').select('dim,cantidad,precio').eq('tipo', 'DESPACHO').then(function(res) {
+      if (res.error) { document.getElementById('desp-resumen').textContent = 'No se pudo leer la configuración: ' + res.error.message; return; }
+      despCfg = JSON.parse(JSON.stringify(DESP_RESPALDO));
+      (res.data || []).forEach(function(r) {
+        if (!despCfg[r.dim]) return;
+        despCfg[r.dim].activo = r.cantidad !== 0;
+        if (Number(r.precio) > 0) despCfg[r.dim].monto = Number(r.precio);
+      });
+      renderDespachos();
+    });
+  }
+  function renderDespachos() {
+    if (!despCfg) return;
+    Object.keys(despCfg).forEach(function(dim) {
+      var c = despCfg[dim];
+      var inp = document.querySelector('[data-desp-monto="' + dim + '"]');
+      var sw  = document.querySelector('[data-desp-activo="' + dim + '"]');
+      var est = document.querySelector('[data-desp-estado="' + dim + '"]');
+      var card = document.querySelector('.desp-card[data-desp="' + dim + '"]');
+      if (inp && document.activeElement !== inp) inp.value = c.monto;
+      if (sw) sw.checked = c.activo;
+      if (est) { est.textContent = c.activo ? 'Prendido' : 'Apagado'; est.style.color = c.activo ? '#16a34a' : '#9ca3af'; }
+      if (card) card.classList.toggle('apagado', !c.activo);
+    });
+    var z1 = despCfg.zona1, z2 = despCfg.zona2, g = despCfg.gratis, h;
+    var pagado = [z1.activo ? 'Zona 1 a ' + fmtCLP(z1.monto) : '', z2.activo ? 'Zona 2 a ' + fmtCLP(z2.monto) : ''].filter(Boolean).join(' y ');
+    if (!pagado && !g.activo) h = '<strong>Hoy en polyplas.cl: solo retiro en tienda.</strong> No se ofrece despacho a domicilio.';
+    else if (!pagado) h = '<strong>Hoy en polyplas.cl:</strong> compras desde ' + fmtCLP(g.monto) + ' tienen <strong>despacho gratis</strong> en la Zona 1 y la Zona 2. Bajo ese monto, <strong>solo retiro en tienda</strong>.';
+    else if (!g.activo) h = '<strong>Hoy en polyplas.cl:</strong> despacho pagado en ' + pagado + ', sin despacho gratis.' + (z1.activo && z2.activo ? '' : ' La otra zona: solo retiro en tienda.');
+    else h = '<strong>Hoy en polyplas.cl:</strong> despacho pagado en ' + pagado + ', y <strong>gratis desde ' + fmtCLP(g.monto) + '</strong> en la Zona 1 y la Zona 2.' + (z1.activo && z2.activo ? '' : ' Bajo ese monto, la otra zona: solo retiro en tienda.');
+    document.getElementById('desp-resumen').innerHTML = h;
+  }
+  function guardarDespacho(dim, cambios, aviso) {
+    var st = document.querySelector('[data-desp-status="' + dim + '"]');
+    if (!sb || !despCfg) return;
+    var nuevo = { activo: despCfg[dim].activo, monto: despCfg[dim].monto };
+    for (var k in cambios) nuevo[k] = cambios[k];
+    if (st) { st.textContent = 'Guardando…'; st.style.color = '#6b7280'; }
+    sb.from('pp_stock').upsert(
+      { tipo:'DESPACHO', dim:dim, color:'na', espesor:'na', cantidad: nuevo.activo ? 1 : 0, precio: nuevo.monto },
+      { onConflict:'tipo,dim,color,espesor' }
+    ).then(function(res) {
+      if (res.error) {
+        if (st) { st.textContent = '✕ No se guardó: ' + res.error.message; st.style.color = '#dc2626'; }
+        renderDespachos();
+        return;
+      }
+      despCfg[dim] = nuevo;
+      renderDespachos();
+      if (st) { st.textContent = '✓ ' + aviso; st.style.color = '#16a34a'; setTimeout(function() { st.textContent = ''; }, 4000); }
+    });
+  }
+  (function initDespachos() {
+    document.querySelectorAll('[data-desp-activo]').forEach(function(sw) {
+      sw.addEventListener('change', function() {
+        var dim = sw.getAttribute('data-desp-activo');
+        if (!despCfg) { sw.checked = !sw.checked; return; }
+        var nombre = dim === 'gratis' ? 'el despacho gratis desde ' + fmtCLP(despCfg.gratis.monto) : 'el despacho pagado en la ' + (dim === 'zona1' ? 'Zona 1' : 'Zona 2') + ' a ' + fmtCLP(despCfg[dim].monto);
+        if (!confirm('¿' + (sw.checked ? 'Prender ' : 'Apagar ') + nombre + '?\n\nEl cambio se aplica en polyplas.cl en 1 a 2 minutos.')) { sw.checked = !sw.checked; return; }
+        guardarDespacho(dim, { activo: sw.checked }, (sw.checked ? 'Prendido' : 'Apagado') + '. La web lo toma en 1 a 2 minutos.');
+      });
+    });
+    document.querySelectorAll('[data-desp-monto]').forEach(function(inp) {
+      inp.addEventListener('change', function() {
+        var dim = inp.getAttribute('data-desp-monto');
+        var v = Math.round(Number(inp.value));
+        var st = document.querySelector('[data-desp-status="' + dim + '"]');
+        if (!despCfg) return;
+        if (!(v > 0) || v > 5000000) {
+          if (st) { st.textContent = '✕ Ingresa un monto válido (mayor que $0).'; st.style.color = '#dc2626'; }
+          inp.value = despCfg[dim].monto; return;
+        }
+        if (v === despCfg[dim].monto) return;
+        guardarDespacho(dim, { monto: v }, 'Monto guardado: ' + fmtCLP(v) + '.');
+      });
+    });
+  })();
+
   // ── Navegación de secciones ──────────────────────────────
   function switchSection(name) {
     document.querySelectorAll('.main-section').forEach(function(s) { s.classList.remove('active'); });
@@ -2565,6 +2728,7 @@
     if (name === 'stock')       loadStock();
     if (name === 'pedidos')     renderOrders();
     if (name === 'ventas')      renderVentas();
+    if (name === 'despachos')   loadDespachos();
   }
 
   // ── Mapa de dimensiones de plancha (en cm) ───────────────
