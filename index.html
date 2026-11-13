@@ -668,8 +668,10 @@
     <div class="login-logo">P</div>
     <h1>Polyplas</h1>
     <p>Panel de gestión interna</p>
+    <label for="email">Correo</label>
+    <input type="email" id="email" placeholder="tu@correo.com" autocomplete="username" style="margin-bottom:14px" />
     <label for="pwd">Contraseña</label>
-    <input type="password" id="pwd" placeholder="Ingresa tu contraseña" />
+    <input type="password" id="pwd" placeholder="Ingresa tu contraseña" autocomplete="current-password" />
     <button id="loginBtn">Ingresar</button>
   </div>
 </div>
@@ -1119,7 +1121,6 @@
 
   var SUPABASE_URL = 'https://gdrkscedvkjtcvexnhzg.supabase.co';
   var SUPABASE_KEY = 'sb_publishable_qT9WuJK5Wi6VghgMvcYIMw_IGBtn1Tc';
-  var PASSWORD     = 'maca2026';
   var scriptURL    = 'https://script.google.com/macros/s/AKfycbw4WkE3slUjbDIUrbYVZD-aL1nB6WWJeyj6XG6rpFNz9p3pSFfdmUd3FjY_hV-QQJNkKA/exec';
 
   var sb = null;
@@ -1317,30 +1318,22 @@
     }
   }
 
-  // === LOGIN (funciona aunque Supabase falle) ===
-  function registrarAcceso(success) {
-    fetch('https://api.ipify.org?format=json')
-      .then(function(r) { return r.json(); })
-      .catch(function() { return { ip: 'desconocida' }; })
-      .then(function(data) {
-        if (sb) sb.from('login_logs').insert({
-          ip: data.ip,
-          user_agent: navigator.userAgent,
-          success: success
-        });
-      });
-  }
-
-  function tryLogin() {
+  // === LOGIN con usuario de Supabase (Ley 21.719) ===
+  // Antes la contraseña estaba escrita en este archivo público. Ahora cada persona del equipo
+  // entra con su propio correo y contraseña de Supabase, y solo los usuarios de la tabla
+  // "equipo" pueden leer conversaciones y cambiar stock o precios.
+  async function tryLogin() {
+    var email = document.getElementById('email').value.trim();
     var pwd = document.getElementById('pwd').value;
-    if (pwd === PASSWORD) {
-      registrarAcceso(true);
-      sessionStorage.setItem('pp_logged', '1');
-      showApp();
-    } else {
-      registrarAcceso(false);
-      alert('Contraseña incorrecta');
-    }
+    if (!sb) { alert('No se pudo conectar. Refresca la página.'); return; }
+    if (!email || !pwd) { alert('Ingresa tu correo y tu contraseña'); return; }
+    var btn = document.getElementById('loginBtn');
+    btn.disabled = true;
+    var r = await sb.auth.signInWithPassword({ email: email, password: pwd });
+    btn.disabled = false;
+    if (r.error) { alert('Correo o contraseña incorrectos'); return; }
+    document.getElementById('pwd').value = '';
+    showApp();
   }
 
   function showApp() {
@@ -1359,6 +1352,9 @@
     document.getElementById('loginBtn').addEventListener('click', tryLogin);
     document.getElementById('pwd').addEventListener('keydown', function(e) {
       if (e.key === 'Enter') tryLogin();
+    });
+    document.getElementById('email').addEventListener('keydown', function(e) {
+      if (e.key === 'Enter') document.getElementById('pwd').focus();
     });
 
     var sendBtn = document.getElementById('chat-send');
@@ -1424,7 +1420,10 @@
       console.error('Supabase SDK no cargado');
     }
 
-    if (sessionStorage.getItem('pp_logged') === '1') showApp();
+    // Si ya hay una sesión abierta en este navegador, entra directo
+    if (sb) sb.auth.getSession().then(function (r) {
+      if (r && r.data && r.data.session) showApp();
+    });
 
     // Delegación de eventos del toast container
     document.getElementById('toast-container').addEventListener('click', function(e) {
